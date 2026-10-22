@@ -352,20 +352,42 @@ const avg=a=>a.reduce((x,y)=>x+y,0)/(a.length||1);
 const canSpeak="speechSynthesis" in window;
 let soundOn=true;try{soundOn=localStorage.getItem("sillyDrawSound")!=="off"}catch(e){}
 function paintSnd(){$("snd").textContent=soundOn?"🔊":"🔇";$("snd").setAttribute("aria-pressed",soundOn)}
-function stopSpeech(){if(canSpeak)speechSynthesis.cancel()}
+function stopSpeech(){speakId++;try{curSrc&&curSrc.stop()}catch(e){}if(canSpeak)speechSynthesis.cancel()}
 function unlockVoice(){ /* phones only allow speech that starts from a tap */
   if(canSpeak&&soundOn)speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+  try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();actx.resume()}catch(e){}
 }
+let actx=null,curSrc=null,speakId=0;
 function speak(text){
-  if(!canSpeak||!soundOn)return;
+  if(!soundOn)return;
+  const t=text.replace(/\p{Extended_Pictographic}/gu,"").replace(/\s+/g," ").trim();
+  if(apiKey&&actx)geminiSpeak(t);else speakLocal(t);
+}
+/* natural voice from Gemini (same key); falls back to the device voice */
+async function geminiSpeak(t){
+  const id=++speakId;
+  try{
+    const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent",{method:"POST",
+      headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
+      body:JSON.stringify({contents:[{parts:[{text:"Say this warmly and playfully, like a friendly game-show host talking to kids: "+t}]}],
+        generationConfig:{responseModalities:["AUDIO"],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:"Puck"}}}}})});
+    if(!r.ok)throw 0;
+    const j=await r.json(),bin=atob(j.candidates[0].content.parts[0].inlineData.data),n=bin.length>>1;
+    const buf=actx.createBuffer(1,n,24000),ch=buf.getChannelData(0);
+    for(let i=0;i<n;i++){let v=bin.charCodeAt(2*i)|(bin.charCodeAt(2*i+1)<<8);if(v>32767)v-=65536;ch[i]=v/32768}
+    if(id!==speakId)return;
+    await actx.resume();const src=actx.createBufferSource();src.buffer=buf;src.connect(actx.destination);curSrc=src;src.start();
+  }catch(e){if(id===speakId)speakLocal(t)}
+}
+function speakLocal(t){
+  if(!canSpeak)return;
   speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(text.replace(/\p{Extended_Pictographic}/gu,"").replace(/\s+/g," ").trim());
-  const en=speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang));
-  const v=en.find(v=>/Samantha|Google US English|Jenny|Aria|Karen/i.test(v.name))||en[0];
-  if(v)u.voice=v;u.lang=(v&&v.lang)||"en-US";u.rate=1.02;u.pitch=1.15;
+  const u=new SpeechSynthesisUtterance(t),en=speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang));
+  const v=en.find(v=>/Natural|Neural|Premium|Enhanced/i.test(v.name))||en.find(v=>/Samantha|Ava|Google US English|Jenny|Aria|Karen/i.test(v.name))||en[0];
+  if(v)u.voice=v;u.lang=(v&&v.lang)||"en-US";u.rate=1;u.pitch=1;
   speechSynthesis.speak(u);
 }
-if(!canSpeak)$("snd").style.display="none";
+
 $("snd").onclick=()=>{soundOn=!soundOn;try{localStorage.setItem("sillyDrawSound",soundOn?"on":"off")}catch(e){}if(!soundOn)stopSpeech();paintSnd()};
 paintSnd();
 
@@ -507,4 +529,3 @@ load();
 </script>
 </body>
 </html>
-
