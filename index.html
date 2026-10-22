@@ -8,6 +8,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://generativelanguage.googleapis.com">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Silly Draw">
 <title>Silly Draw! Family Game</title>
 <style>
 :root{--p:#6848b8;--d:#39245e;--cream:#fff8ec;--muted:#776b86;--gold:#ffd25e}
@@ -93,6 +97,9 @@ header{white-space:nowrap;padding-left:calc(100px + env(safe-area-inset-left,0px
 #frame{width:min(78vw,56dvh)}
 @media(min-aspect-ratio:5/4){.emojis{grid-template-columns:repeat(14,1fr)}#pick .sheet,#set .sheet{max-width:640px}#res{align-items:center}#res .sheet{max-width:640px;border-radius:26px}}
 @media(orientation:landscape) and (max-height:520px){#camBottom{padding:8px 16px calc(10px + env(safe-area-inset-bottom,0px))}#status{margin-bottom:6px;font-size:1rem}#alt{margin-top:8px;padding:8px 14px}#camTop{padding-top:calc(8px + env(safe-area-inset-top,0px));padding-bottom:8px}#frame{top:47%}.sheet{padding:14px 20px calc(14px + env(safe-area-inset-bottom,0px))}.big{font-size:3rem}.aw{margin:4px 0}.cm{margin-bottom:6px}.tag{margin-bottom:8px}.emojis{margin:8px 0}}
+#inst{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:15;display:none;align-items:center;gap:8px;width:max-content;max-width:min(520px,calc(100vw - 24px));background:var(--d);color:#fff;border-radius:16px;padding:6px 6px 6px 14px;box-shadow:0 6px 20px #0005;font-size:.9rem;font-weight:700}
+#inst.show{display:flex}#instGo{background:var(--gold);color:var(--d);padding:8px 14px}#instX{background:none;color:#fff;padding:8px;min-width:40px;min-height:40px}
+body:has(#cam.open) #inst{display:none}
 </style>
 </head>
 <body>
@@ -144,6 +151,8 @@ header{white-space:nowrap;padding-left:calc(100px + env(safe-area-inset-left,0px
     </div>
   </div>
 </div>
+
+<div id="inst" role="region" aria-label="Install app"><span id="instTxt"></span><button id="instGo">Install</button><button id="instX" aria-label="Dismiss">✕</button></div>
 
 <div id="pick" role="dialog" aria-label="Choose an avatar">
   <div class="sheet">
@@ -531,6 +540,23 @@ if(fsRoot.requestFullscreen&&document.fullscreenEnabled){
   fsBtn.style.display="block";
   fsBtn.onclick=()=>document.fullscreenElement?document.exitFullscreen():fsRoot.requestFullscreen();
 }
+/* ---------- install prompt + offline support ---------- */
+let dip=null;
+const standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone;
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const snoozed=()=>{try{return Date.now()-(+localStorage.getItem("sillyDrawInstX")||0)<6048e5}catch(e){return false}};
+function showInst(){
+  if(standalone||snoozed())return;
+  $("instTxt").textContent=dip?"📲 Install Silly Draw on this device":"📲 Install: tap Share ⬆️ then “Add to Home Screen”";
+  $("instGo").style.display=dip?"block":"none";$("inst").classList.add("show");
+}
+function hideInst(snooze){$("inst").classList.remove("show");if(snooze)try{localStorage.setItem("sillyDrawInstX",Date.now())}catch(e){}}
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();dip=e;showInst()});
+window.addEventListener("appinstalled",()=>{dip=null;hideInst(false)});
+$("instGo").onclick=async()=>{if(!dip)return;dip.prompt();try{await dip.userChoice}catch(e){}dip=null;hideInst(false)};
+$("instX").onclick=()=>hideInst(true);
+if(isIOS)setTimeout(showInst,2500);
+if("serviceWorker" in navigator&&/^https?:/.test(location.protocol))navigator.serviceWorker.register("sw.js").catch(()=>{});
 load();
 </script>
 </body>
