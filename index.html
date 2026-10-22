@@ -173,6 +173,7 @@ body:has(#cam.open) #inst{display:none}
 <label style="display:flex;gap:8px;align-items:center;margin-bottom:8px;font-size:.9rem"><input type="checkbox" id="kNat"> Natural voice (sounds nicer, but slower)</label>
 <div id="kStatus" role="status" aria-live="polite"></div>
 <div class="btns"><button class="a" id="kDel">Remove key</button><button class="b" id="kSave">Save &amp; test</button></div>
+<button class="secondary" id="kVoice">🔊 Test natural voice</button>
 <button class="secondary" id="kX">Close</button>
 <p class="tag" style="margin-top:10px">🔒 The key is saved only on this device. Each drawing photo is sent to Google to be judged. Use a grown-up’s account, and check Google’s terms on how free-tier data is used.</p>
 </div></div>
@@ -378,18 +379,25 @@ function speak(text){
 }
 /* natural voice from Gemini (same key); falls back to the device voice */
 const sayText=q=>(q.score+"! "+q.comment).replace(/\p{Extended_Pictographic}/gu,"").replace(/\s+/g," ").trim();
+const TTS_MODELS=["gemini-3.1-flash-tts-preview","gemini-2.5-flash-preview-tts"];let ttsErr="";
 async function fetchTTS(t){
-  try{
-    const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent",{method:"POST",
-      headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
-      body:JSON.stringify({contents:[{parts:[{text:"Say this warmly and playfully, like a friendly game-show host talking to kids: "+t}]}],
-        generationConfig:{responseModalities:["AUDIO"],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:"Puck"}}}}})});
-    if(!r.ok)return null;
-    const j=await r.json(),bin=atob(j.candidates[0].content.parts[0].inlineData.data),n=bin.length>>1;
-    const buf=actx.createBuffer(1,n,24000),ch=buf.getChannelData(0);
-    for(let i=0;i<n;i++){let v=bin.charCodeAt(2*i)|(bin.charCodeAt(2*i+1)<<8);if(v>32767)v-=65536;ch[i]=v/32768}
-    return buf;
-  }catch(e){return null}
+  ttsErr="";
+  for(const m of TTS_MODELS){
+    try{
+      const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+m+":generateContent",{method:"POST",
+        headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
+        body:JSON.stringify({contents:[{parts:[{text:"Say this warmly and playfully, like a friendly game-show host talking to kids: "+t}]}],
+          generationConfig:{responseModalities:["AUDIO"],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:"Puck"}}}}})});
+      if(!r.ok){ttsErr=m+": HTTP "+r.status;if(r.status===429||r.status===403||r.status===401)return null;continue}
+      const j=await r.json(),part=j.candidates[0].content.parts[0].inlineData,bin=atob(part.data),n=bin.length>>1;
+      const rate=+((/rate=(\d+)/.exec(part.mimeType||"")||[])[1])||24000;
+      const buf=actx.createBuffer(1,n,rate),ch=buf.getChannelData(0);
+      for(let i=0;i<n;i++){let v=bin.charCodeAt(2*i)|(bin.charCodeAt(2*i+1)<<8);if(v>32767)v-=65536;ch[i]=v/32768}
+      TTS_MODELS.unshift(TTS_MODELS.splice(TTS_MODELS.indexOf(m),1)[0]); /* remember what works */
+      return buf;
+    }catch(e){ttsErr=m+": "+(e&&e.message||e)}
+  }
+  return null;
 }
 function playBuf(buf){
   try{actx.resume();const src=actx.createBufferSource();src.buffer=buf;src.connect(actx.destination);curSrc=src;src.start()}catch(e){}
@@ -439,6 +447,14 @@ $("kNat").checked=natural;$("kNat").onchange=e=>{natural=e.target.checked;try{lo
 function openSet(){kIn.value="";kSt.textContent=apiKey?"✅ A key is saved on this device.":"";$("set").classList.add("show");kIn.focus()}
 function closeSet(){$("set").classList.remove("show")}
 $("gear").onclick=openSet;$("kX").onclick=closeSet;$("set").onclick=e=>{if(e.target===$("set"))closeSet()};
+$("kVoice").onclick=async()=>{
+  if(!apiKey){kSt.textContent="Save your key first 👆";return}
+  try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();await actx.resume()}catch(e){kSt.textContent="❌ This browser can’t play audio";return}
+  kSt.textContent="Making the voice…";
+  const b=await fetchTTS("Hello! I am your silly drawing judge.");
+  if(b){playBuf(b);kSt.textContent="✅ Natural voice works!"}
+  else kSt.textContent="❌ Natural voice failed ("+(ttsErr||"no answer")+"). Using the device voice.";
+};
 $("kDel").onclick=()=>{apiKey="";try{localStorage.removeItem(KEY_NAME)}catch(e){}kIn.value="";kSt.textContent="Key removed. The offline judge will be used."};
 $("kSave").onclick=async()=>{
   const k=kIn.value.trim()||apiKey;
