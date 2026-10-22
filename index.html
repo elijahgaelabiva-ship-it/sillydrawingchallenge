@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#6848b8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Silly Draw! Family Game</title>
+<style>
+:root{--p:#6848b8;--d:#39245e;--cream:#fff8ec;--muted:#776b86;--gold:#ffd25e}
+*{box-sizing:border-box}
+body{margin:0;height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;background:var(--cream);color:#35264b;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:relative;flex:none;background:var(--p);color:#fff;text-align:center;padding:calc(8px + env(safe-area-inset-top,0px)) 56px 8px;font-size:1.3rem;font-weight:900}
+#snd{position:absolute;left:8px;top:calc(4px + env(safe-area-inset-top,0px));width:38px;height:34px;padding:0;background:#fff2;color:#fff;font-size:1.1rem}
+#fs{position:absolute;right:8px;top:calc(4px + env(safe-area-inset-top,0px));width:38px;height:34px;padding:0;background:#fff2;color:#fff;font-size:1.2rem;display:none}
+main{flex:1;min-height:0;width:100%;display:grid;gap:12px;grid-template-rows:minmax(0,1fr) auto;padding:12px calc(12px + env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) calc(12px + env(safe-area-inset-left,0px))}
+.play{min-height:0;display:flex;flex-direction:column;gap:12px}
+.board{min-height:0;max-height:38dvh;display:flex;flex-direction:column;padding:10px}
+#players{overflow-y:auto;min-height:0}
+.tools{display:flex;gap:8px;margin-top:8px}
+.tools .secondary{width:auto;flex:1;padding:9px;font-size:.9rem}
+@media(min-aspect-ratio:5/4){main{grid-template-columns:1.5fr 1fr;grid-template-rows:minmax(0,1fr);gap:18px;padding:18px}.board{max-height:none}.play{gap:18px}}
+button{font:inherit;cursor:pointer;border:0;border-radius:14px;padding:12px;font-weight:800}
+button:focus-visible,select:focus-visible{outline:3px solid #ffb400;outline-offset:2px}
+.card{background:#fff;border:1px solid #e8dff2;border-radius:20px;padding:16px}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.mode{background:#fff;border:2px solid #e3d8f1;color:var(--d);padding:9px 2px;font-size:.9rem}
+.mode.active{background:#ffe6a3;border-color:#d9a83b}
+.wordbox{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--gold);border:4px solid var(--d);border-radius:26px;box-shadow:0 8px 0 var(--d);padding:14px 16px;text-align:center;margin-bottom:8px}.say{font-weight:800;color:#6b4a00}.word{flex:1;display:flex;align-items:center;justify-content:center;font-size:clamp(1.9rem,min(10vw,8dvh),3.6rem);line-height:1.1;font-weight:900;color:var(--d);margin:6px 4px;text-wrap:balance;overflow-wrap:anywhere}@media(min-aspect-ratio:5/4){.word{font-size:clamp(2.4rem,min(5.5vw,11dvh),4.6rem)}}.word.pop{animation:pop .35s ease-out}.word{min-height:0}.wordbox{min-height:96px}.pts{white-space:nowrap}@media(max-height:480px){.say{display:none}.wordbox{padding:10px 14px}.word{font-size:clamp(1.4rem,11dvh,2.6rem)}.wordbox .secondary{padding:8px}.modes .mode{padding:6px 2px}#judge{padding:10px;font-size:1.2rem}}@media(max-height:420px){#snd{height:28px;top:calc(2px + env(safe-area-inset-top,0px))}header{padding-top:calc(4px + env(safe-area-inset-top,0px));padding-bottom:4px;font-size:1.1rem}#fs{height:28px;top:calc(2px + env(safe-area-inset-top,0px))}main,.play{gap:8px}main{padding-top:8px;padding-bottom:8px}.modes .mode{padding:5px 2px;font-size:.85rem}.wordbox{padding:8px 12px;border-width:3px;box-shadow:0 5px 0 var(--d);margin-bottom:5px}.word{font-size:clamp(1.2rem,10dvh,2.6rem);margin:2px}.wordbox .secondary{padding:6px;font-size:.85rem}#judge{padding:8px;font-size:1.1rem;box-shadow:0 4px 0 var(--d)}.row{padding:4px 6px}.tools .secondary{padding:7px}}@media(max-height:340px){.word{font-size:clamp(1.1rem,8dvh,2rem)}}@keyframes pop{0%{transform:scale(.85);opacity:.3}60%{transform:scale(1.06)}100%{transform:none;opacity:1}}.wordbox .secondary{background:#fff;border:3px solid var(--d)}
+.link{background:none;color:var(--muted);padding:6px;display:block;margin:auto;font-size:.9rem}
+#judge{flex:none;width:100%;padding:16px;font-size:1.4rem;letter-spacing:.5px;background:var(--p);color:#fff;box-shadow:0 6px 0 var(--d)}
+#judge:active{transform:translateY(4px);box-shadow:0 2px 0 var(--d)}
+.row{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:14px;cursor:pointer}.row.on{background:#f3ecff}.sel{flex:none;width:26px;height:26px;padding:0;border-radius:50%;background:#fff;border:2px solid #cdbfe3}.sel.on{border-color:var(--p);background:radial-gradient(var(--p) 0 42%,#fff 46%)}
+
+.row .av{font-size:1.3rem;background:#f3edf9;border-radius:12px;padding:4px 6px;line-height:1}.nm{width:100%;font:inherit;font-weight:800;color:var(--d);border:0;border-bottom:2px dashed #e3d8f1;background:transparent;padding:2px 0;border-radius:0}.nm:focus{outline:none;border-bottom-color:var(--p)}.del{background:none;color:#b9aecb;padding:6px;font-size:.9rem}.hint{margin:0 0 4px;font-size:.8rem;color:var(--muted);text-align:center}.secondary{display:block;width:100%;background:#f3edf9;color:var(--d);border:2px solid #e3d8f1;padding:13px}#pick{position:fixed;inset:0;background:#0007;display:none;align-items:flex-end;justify-content:center;z-index:20}#pick.show{display:flex}.emojis{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:14px 0}.emojis button{font-size:1.6rem;background:#f3edf9;padding:8px 0;border-radius:12px;line-height:1.1}.emojis button.on{box-shadow:inset 0 0 0 3px var(--p)}
+.row .n{flex:1;font-weight:800;color:var(--d)}
+.row .last{display:block;font-weight:500;font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .pts{font-weight:900;color:#a66b00}
+/* camera overlay */
+#cam{position:fixed;inset:0;background:#000;display:none;z-index:10;color:#fff}
+#cam.open{display:block}
+#vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#frame{position:absolute;left:50%;top:44%;width:min(78vw,60vh);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:18px;pointer-events:none;
+ --c:#fff;background:
+ linear-gradient(var(--c),var(--c)) 0 0/34px 4px,linear-gradient(var(--c),var(--c)) 0 0/4px 34px,
+ linear-gradient(var(--c),var(--c)) 100% 0/34px 4px,linear-gradient(var(--c),var(--c)) 100% 0/4px 34px,
+ linear-gradient(var(--c),var(--c)) 0 100%/34px 4px,linear-gradient(var(--c),var(--c)) 0 100%/4px 34px,
+ linear-gradient(var(--c),var(--c)) 100% 100%/34px 4px,linear-gradient(var(--c),var(--c)) 100% 100%/4px 34px;
+ background-repeat:no-repeat;box-shadow:0 0 0 100vmax #0006}
+#camTop{position:absolute;top:0;left:0;right:0;padding:16px;display:flex;align-items:center;gap:10px;background:linear-gradient(#000a,transparent)}
+#camWord{flex:1;font-weight:800;text-align:center}
+#x{background:#fff3;color:#fff;width:40px;height:40px;padding:0;font-size:1.1rem;border-radius:50%}
+#camBottom{position:absolute;left:0;right:0;bottom:0;padding:22px 20px calc(26px + env(safe-area-inset-bottom,0px));text-align:center;background:linear-gradient(transparent,#000b)}
+#status{font-weight:800;font-size:1.1rem;margin-bottom:12px}
+.bar{height:8px;background:#fff3;border-radius:6px;overflow:hidden;max-width:320px;margin:auto}
+.bar i{display:block;height:100%;width:0;background:var(--gold);transition:width .2s}
+#alt{display:none;margin:14px auto 0;background:#fff;color:var(--d)}
+/* result */
+#res{position:absolute;inset:0;background:#000b;display:none;align-items:flex-end;justify-content:center}
+#res.show{display:flex}#cam:has(#res.show) #camBottom{visibility:hidden}
+.sheet{background:#fff;color:#35264b;width:100%;max-width:520px;border-radius:26px 26px 0 0;padding:26px 20px calc(22px + env(safe-area-inset-bottom,0px));text-align:center;animation:up .3s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+@media(prefers-reduced-motion:reduce){.bar i.busy{animation:none}.word.pop{animation:none}.sheet{animation:none}.bar i{transition:none}}
+.big{font-size:4.2rem;font-weight:900;color:var(--p);line-height:1}
+.big small{font-size:1.2rem;color:var(--muted)}
+.aw{font-size:1.2rem;font-weight:900;color:#a66b00;margin:8px 0}
+.see{font-size:.95rem;color:var(--muted);margin:0 0 6px}.cm{font-size:1.05rem;line-height:1.45;margin:0 0 10px}.tag{font-size:.78rem;color:var(--muted);margin:0 0 14px}.bar i.busy{width:100%!important;animation:pulse .9s ease-in-out infinite alternate}@keyframes pulse{from{opacity:.35}to{opacity:1}}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btns .a{background:#f3edf9;color:var(--d)}
+.btns .b{background:var(--p);color:#fff}
+</style>
+</head>
+<body>
+<header><button id="snd" aria-label="Spoken judgment on or off" aria-pressed="true">🔊</button>🎨 Silly Draw!<button id="fs" aria-label="Toggle full screen">⛶</button></header>
+<main>
+  <div class="play">
+  <div class="modes">
+      <button class="mode" data-mode="easy">🐣 Easy</button>
+      <button class="mode active" data-mode="silly">😂 Silly</button>
+      <button class="mode" data-mode="wild">🤪 Wacky</button>
+  </div>
+
+  <section class="wordbox">
+    <div class="say">Everyone draw this!</div>
+    <div class="word" id="word">A dancing banana 🍌</div>
+    <button class="secondary" id="newWord">🔀 Another word</button>
+  </section>
+
+  <button id="judge">📷 JUDGE IT</button>
+  </div>
+
+  <section class="card board">
+    <div id="players"></div>
+    <div class="tools">
+      <button class="secondary" id="addP">＋ Add player</button>
+      <button class="secondary" id="reset">Reset scores</button>
+    </div>
+  </section>
+</main>
+
+<div id="cam" role="dialog" aria-label="Judge camera">
+  <video id="vid" playsinline muted autoplay></video>
+  <div id="frame"></div>
+  <div id="camTop"><div id="camWord"></div><button id="x" aria-label="Close camera">✕</button></div>
+  <div id="camBottom">
+    <div id="status">Starting camera…</div>
+    <div class="bar"><i id="prog"></i></div>
+    <button id="alt">📁 Use a photo instead</button>
+    <input type="file" id="file" accept="image/*" capture="environment" hidden>
+  </div>
+  <div id="res">
+    <div class="sheet">
+      <div class="big"><span id="rScore">0</span><small>/100</small></div>
+      <div class="aw" id="rAward"></div>
+      <p class="see" id="rSee"></p>
+      <p class="cm" id="rComment"></p>
+      <p class="tag" id="rTag"></p>
+      <div class="btns"><button class="a" id="again">Judge again</button><button class="b" id="save">Save score</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="pick" role="dialog" aria-label="Choose an avatar">
+  <div class="sheet">
+    <div class="aw">Choose an avatar</div>
+    <div class="emojis" id="emojis"></div>
+    <button class="secondary" id="pickX">Cancel</button>
+  </div>
+</div>
+
+<script>
+const sets={
+easy:["A happy sun ☀️","A funny monster 👾","A sleepy cat 🐱","A house made of candy 🍬","A rainbow elephant 🐘","A silly frog 🐸","A flying turtle 🐢","A smiling cloud ☁️","A tiny dragon 🐉","A rabbit with glasses 🐰","A fish wearing a hat 🐠","A teddy bear chef 🧸","A moon with a face 🌙","A snail on a rocket 🚀","A dinosaur eating cake 🦕"],
+silly:["A dancing banana 🍌","A chicken wearing shoes 🐔","A sleepy dinosaur 🦖","A cat eating spaghetti 🐱","A flying potato 🥔","A monkey brushing its teeth 🐵","A penguin on a skateboard 🐧","A pizza with legs 🍕","A laughing toilet 🚽","A frog wearing a crown 🐸","A cow riding a bicycle 🐮","A duck with superhero muscles 🦆","A fish in pajamas 🐟","A farting unicorn 🦄","A baby shark at school 🦈","A dancing hamburger 🍔","A dog with ten tails 🐶","A robot eating ice cream 🤖","A giraffe in a tiny car 🦒","A watermelon astronaut 🍉"],
+wild:["A dinosaur delivering pizza 🦖🍕","A superhero chicken saving the moon 🐔🌙","A crocodile dancing ballet 🐊","A monster with spaghetti hair 👾","A penguin driving a banana car 🐧🍌","A pirate teddy bear finding cheese 🧸🧀","A unicorn playing basketball 🦄🏀","A giant baby eating the city 👶","A shark wearing roller skates 🦈","A monkey king riding a vacuum 🐵","A sleepy alien at a birthday party 👽","A dragon afraid of a tiny mouse 🐉🐭","A cow flying to the moon 🐮🌙","A superhero potato fighting broccoli 🥔🥦","A spaghetti monster taking a bath 🍝"]};
+
+let players=[{name:"Hiraya",emoji:"🦄"},{name:"Elijah",emoji:"🦖"},{name:"Daddy",emoji:"🐻"}];
+const EMOJIS=["🦄","🦖","🐻","🐱","🐶","🐰","🐼","🦊","🐸","🐵","🦁","🐯","🐨","🐧","🦉","🐢","🐙","🦋","🐳","🐝","🚀","🌈","⭐","🍕","🤖","👽","👻","🎃"];
+const MAX=8;
+let mode="silly",round=1,word=sets.silly[0],scores=[0,0,0],history=[[],[],[]],who=0;
+const $=id=>document.getElementById(id);
+
+/* ---------- words & players ---------- */
+let used={easy:[],silly:[],wild:[]};
+function nextWord(){
+  const all=sets[mode];
+  let pool=all.filter(w=>!used[mode].includes(w)&&w!==word);
+  if(!pool.length){used[mode]=[];pool=all.filter(w=>w!==word)} /* every word seen: start a fresh round */
+  word=pool[Math.floor(Math.random()*pool.length)];
+  used[mode].push(word);round++;$("word").textContent=word;$("word").classList.remove("pop");void $("word").offsetWidth;$("word").classList.add("pop");save();
+}
+document.querySelectorAll(".mode").forEach(b=>b.onclick=()=>{
+  mode=b.dataset.mode;
+  document.querySelectorAll(".mode").forEach(x=>x.classList.toggle("active",x===b));
+  nextWord();
+});
+$("newWord").onclick=nextWord;
+
+function render(){
+  $("players").innerHTML="";
+  $("addP").style.display=players.length<MAX?"block":"none";
+  players.forEach((p,i)=>{
+    const h=history[i][history[i].length-1];
+    const d=document.createElement("div");d.className="row"+(i===who?" on":"");
+    d.onclick=e=>{if(!e.target.closest("button,input"))pickWho(i)};
+
+    const sel=document.createElement("button");sel.className="sel"+(i===who?" on":"");
+    sel.setAttribute("aria-pressed",i===who);sel.setAttribute("aria-label","Choose "+p.name+" as the artist");
+    sel.onclick=()=>pickWho(i);
+
+    const av=document.createElement("button");av.className="av";av.textContent=p.emoji;
+    av.setAttribute("aria-label","Change avatar for "+p.name);av.onclick=()=>openPick(i);
+
+    const n=document.createElement("div");n.className="n";
+    const inp=document.createElement("input");inp.className="nm";inp.value=p.name;inp.maxLength=14;
+    inp.setAttribute("aria-label","Player name");
+    inp.onfocus=()=>pickWho(i);
+    inp.oninput=()=>{p.name=inp.value;save()};
+    inp.onchange=()=>{p.name=inp.value.trim()||"Player "+(i+1);inp.value=p.name;save()};
+    const last=document.createElement("span");last.className="last";
+    last.textContent=h?`${h.word} · ${h.score}/100`:"No drawings yet";
+    n.append(inp,last);
+
+    const pts=document.createElement("div");pts.className="pts";pts.textContent=scores[i]+" pts";
+
+    d.append(sel,av,n,pts);
+    if(players.length>1){
+      const x=document.createElement("button");x.className="del";x.textContent="✕";
+      x.setAttribute("aria-label","Remove "+p.name);x.onclick=()=>removePlayer(i);
+      d.append(x);
+    }
+    $("players").appendChild(d);
+  });
+}
+function pickWho(i){
+  who=i;
+  document.querySelectorAll(".row").forEach((r,j)=>{
+    r.classList.toggle("on",j===i);
+    const b=r.querySelector(".sel");b.classList.toggle("on",j===i);b.setAttribute("aria-pressed",j===i);
+  });
+}
+$("addP").onclick=()=>addPlayer();
+function addPlayer(){
+  if(players.length>=MAX)return;
+  const used=players.map(p=>p.emoji);
+  const emoji=EMOJIS.find(e=>!used.includes(e))||EMOJIS[0];
+  players.push({name:"Player "+(players.length+1),emoji});scores.push(0);history.push([]);
+  who=players.length-1;save();render();
+  const all=document.querySelectorAll(".nm"),inp=all[all.length-1];
+  inp.scrollIntoView({block:"center"});inp.focus();inp.select();
+}
+function removePlayer(i){
+  if(players.length<2||!confirm("Remove "+players[i].name+" and their score?"))return;
+  players.splice(i,1);scores.splice(i,1);history.splice(i,1);
+  if(i<who||who>=players.length)who=Math.max(0,who-1);
+  save();render();
+}
+let pickFor=0;
+function openPick(i){
+  pickFor=i;$("emojis").innerHTML="";
+  EMOJIS.forEach(e=>{
+    const b=document.createElement("button");b.textContent=e;
+    b.className=e===players[i].emoji?"on":"";
+    b.onclick=()=>{players[pickFor].emoji=e;save();render();closePick()};
+    $("emojis").appendChild(b);
+  });
+  $("pick").classList.add("show");
+}
+function closePick(){$("pick").classList.remove("show")}
+$("pickX").onclick=closePick;
+$("pick").onclick=e=>{if(e.target===$("pick"))closePick()};
+
+/* ---------- judging ---------- */
+const awards=n=>n>=95?"👑 Drawing Legend!":n>=85?"🏆 Giggle Champion!":n>=75?"🌈 Creative Superstar!":"🎨 Brilliantly Wacky!";
+const lines={
+ top:["Wow! This {w} made my eyebrows do a backflip! 🤸","Museum time! This {w} is going on the fridge forever. 🖼️","I laughed so hard my pixels fell off. Legendary {w}!"],
+ high:["This {w} is so silly I can't stop giggling! 😂","What a great {w}! The colors are doing a happy dance. 💃","I'd hang this {w} in my house. Maybe on the ceiling!"],
+ mid:["Now THAT is a {w}! Nobody draws it quite like you. 🌟","Wonderfully wacky! This {w} has so much personality.","I see a {w} and I see big imagination. Bravo! 👏"],
+ low:["A bold and mysterious {w}! I love the brave lines. 💛","This {w} is full of surprises. Artists like you are rare!","Every great artist started with a doodle like this. Keep going! ✨"]
+};
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+const cv=document.createElement("canvas"),cx=cv.getContext("2d",{willReadFrequently:true});
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* look at the middle of the picture: how much "ink" and how colorful */
+function look(src,w,h){
+  const S=48;cv.width=cv.height=S;
+  const side=Math.min(w,h)*.7;
+  cx.drawImage(src,(w-side)/2,(h-side)/2,side,side,0,0,S,S);
+  const d=cx.getImageData(0,0,S,S).data,n=S*S,lum=new Array(n);let sum=0,sat=0;
+  for(let i=0;i<n;i++){
+    const r=d[i*4],g=d[i*4+1],b=d[i*4+2];
+    lum[i]=.299*r+.587*g+.114*b;sum+=lum[i];
+    const mx=Math.max(r,g,b),mn=Math.min(r,g,b);sat+=mx?(mx-mn)/mx:0;
+  }
+  const mean=sum/n;let ink=0;
+  for(let i=0;i<n;i++)if(Math.abs(lum[i]-mean)>mean*.22)ink++;
+  return{ink:ink/n,color:sat/n};
+}
+function judgement(avgInk,avgColor){
+  const effort=clamp(avgInk/.2,0,1)*14,color=clamp(avgColor/.35,0,1)*10,jitter=Math.random()*12;
+  const s=Math.round(clamp(62+effort+color+jitter,60,100));
+  const t=s>=95?"top":s>=85?"high":s>=75?"mid":"low";
+  const w=word.replace(/\s*[^\w\s]+$/u,"").replace(/^A /,"").replace(/^An /,"");
+  return{score:s,comment:pick(lines[t]).replace("{w}",w.toLowerCase())};
+}
+
+let stream=null,timer=null,good=0,inks=[],cols=[],last=null;
+const NEED=14; /* ~3 seconds of seeing a drawing */
+
+function setStatus(t){$("status").textContent=t}
+function stopCam(){
+  clearInterval(timer);timer=null;
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  $("vid").srcObject=null;
+}
+function closeCam(){stopSpeech();reqId++;if(ctl)ctl.abort();stopCam();$("cam").classList.remove("open");$("res").classList.remove("show")}
+
+async function openCam(){
+  $("camWord").textContent=word;$("cam").classList.add("open");$("res").classList.remove("show");
+  $("alt").style.display="none";$("prog").style.width="0";setStatus("Starting camera…");
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
+    $("vid").srcObject=stream;await $("vid").play();
+    startScan();
+  }catch(e){
+    setStatus("Camera didn't open. Allow camera access, or use a photo.");
+    $("alt").style.display="block";
+  }
+}
+function startScan(){
+  good=0;inks=[];cols=[];$("prog").style.width="0";setStatus("Hold the drawing inside the frame");
+  clearInterval(timer);
+  timer=setInterval(()=>{
+    const v=$("vid");if(!v.videoWidth)return;
+    const r=look(v,v.videoWidth,v.videoHeight);
+    if(r.ink>.012){good++;inks.push(r.ink);cols.push(r.color);setStatus("Looking at your drawing…")}
+    else{good=Math.max(0,good-1);setStatus("Move closer so the drawing fills the frame")}
+    $("prog").style.width=(good/NEED*100)+"%";
+    if(good>=NEED){clearInterval(timer);const v=$("vid");judgeNow(v,v.videoWidth,v.videoHeight,{ink:avg(inks),color:avg(cols)},true)}
+  },220);
+}
+const avg=a=>a.reduce((x,y)=>x+y,0)/(a.length||1);
+
+/* ---------- spoken judgment (the device's own voice) ---------- */
+const canSpeak="speechSynthesis" in window;
+let soundOn=true;try{soundOn=localStorage.getItem("sillyDrawSound")!=="off"}catch(e){}
+function paintSnd(){$("snd").textContent=soundOn?"🔊":"🔇";$("snd").setAttribute("aria-pressed",soundOn)}
+function stopSpeech(){if(canSpeak)speechSynthesis.cancel()}
+function unlockVoice(){ /* phones only allow speech that starts from a tap */
+  if(canSpeak&&soundOn)speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+}
+function speak(text){
+  if(!canSpeak||!soundOn)return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text.replace(/\p{Extended_Pictographic}/gu,"").replace(/\s+/g," ").trim());
+  const en=speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang));
+  const v=en.find(v=>/Samantha|Google US English|Jenny|Aria|Karen/i.test(v.name))||en[0];
+  if(v)u.voice=v;u.lang=(v&&v.lang)||"en-US";u.rate=1.02;u.pitch=1.15;
+  speechSynthesis.speak(u);
+}
+if(!canSpeak)$("snd").style.display="none";
+$("snd").onclick=()=>{soundOn=!soundOn;try{localStorage.setItem("sillyDrawSound",soundOn?"on":"off")}catch(e){}if(!soundOn)stopSpeech();paintSnd()};
+paintSnd();
+
+/* ---------- AI judge (Netlify function keeps the API key secret) ---------- */
+const JUDGE_URL="/.netlify/functions/judge";
+let reqId=0,ctl=null;
+
+/* small in-memory copy of what the camera sees; sent once, never stored by this page */
+function snapshot(src,w,h){
+  const k=Math.min(1,800/Math.max(w,h)),c=document.createElement("canvas");
+  c.width=Math.round(w*k);c.height=Math.round(h*k);
+  c.getContext("2d").drawImage(src,0,0,c.width,c.height);
+  return c.toDataURL("image/jpeg",.7).split(",")[1];
+}
+async function judgeNow(src,w,h,local,live){
+  const id=++reqId;
+  setStatus("The judge is looking… 🧐");$("prog").classList.add("busy");
+  ctl=new AbortController();const mine=ctl,t=setTimeout(()=>mine.abort(),20000);
+  let out=null;
+  try{
+    const r=await fetch(JUDGE_URL,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({image:snapshot(src,w,h),word}),signal:mine.signal});
+    if(r.ok)out=await r.json();
+  }catch(e){}
+  clearTimeout(t);
+  if(id!==reqId||!$("cam").classList.contains("open"))return; /* closed or replaced meanwhile */
+  $("prog").classList.remove("busy");
+
+  if(out&&out.visible===false){
+    if(live){setStatus("I can't see a drawing yet. Fill the frame!");setTimeout(()=>{if(id===reqId&&stream)startScan()},1500)}
+    else{setStatus("I can't see a drawing in that photo. Try another!");$("alt").style.display="block"}
+    return;
+  }
+  if(out&&Number.isFinite(out.score)){
+    showResult({score:out.score,comment:out.comment,see:out.see},true);
+  }else{
+    showResult(judgement(local.ink,local.color),false); /* offline / no key: simple local judge */
+  }
+}
+function showResult(r,ai){
+  last={score:r.score,comment:r.comment};
+  $("rScore").textContent=r.score;$("rAward").textContent=awards(r.score);
+  $("rSee").textContent=r.see?"I see: "+r.see:"";
+  $("rComment").textContent=r.comment;
+  speak(r.score+" out of 100! "+awards(r.score)+" "+r.comment);
+  $("rTag").textContent=ai?"✨ Judged by Gemini":"📴 Offline judge (no AI connection)";
+  $("res").classList.add("show");
+}
+
+$("judge").onclick=()=>{unlockVoice();openCam()};
+$("x").onclick=closeCam;
+$("again").onclick=()=>{stopSpeech();$("res").classList.remove("show");stream?startScan():openCam()};
+$("save").onclick=()=>{
+  if(!last)return;
+  scores[who]+=last.score;history[who].push({word,score:last.score,comment:last.comment});
+  render();save();closeCam();
+};
+$("alt").onclick=()=>$("file").click();
+$("file").onchange=e=>{
+  const f=e.target.files&&e.target.files[0];if(!f)return;
+  const img=new Image(),url=URL.createObjectURL(f);
+  img.onload=()=>{const r=look(img,img.naturalWidth,img.naturalHeight);judgeNow(img,img.naturalWidth,img.naturalHeight,{ink:Math.max(r.ink,.03),color:r.color},false);URL.revokeObjectURL(url)};
+  img.src=url;e.target.value="";
+};
+
+/* ---------- save / load / reset ---------- */
+function save(){try{localStorage.setItem("sillyDrawFamily",JSON.stringify({players,scores,history,round,mode,word,used}))}catch(e){}}
+function load(){
+  try{
+    const x=JSON.parse(localStorage.getItem("sillyDrawFamily"));
+    if(x){
+      if(Array.isArray(x.players)&&x.players.length)players=x.players.slice(0,MAX);
+      scores=x.scores||scores;history=x.history||history;round=x.round||1;mode=x.mode||mode;word=x.word||word;if(x.used)used={easy:[],silly:[],wild:[],...x.used};
+      document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("active",b.dataset.mode===mode));
+    }
+  }catch(e){}
+  if(!used[mode].includes(word))used[mode].push(word);
+  scores=players.map((_,i)=>scores[i]||0);history=players.map((_,i)=>history[i]||[]);
+  $("word").textContent=word;render();
+}
+$("reset").onclick=()=>{
+  if(confirm("Reset all scores? Players stay.")){
+    scores=players.map(()=>0);history=players.map(()=>[]);save();render();
+  }
+};
+const fsBtn=$("fs"),fsRoot=document.documentElement;
+if(fsRoot.requestFullscreen&&document.fullscreenEnabled){
+  fsBtn.style.display="block";
+  fsBtn.onclick=()=>document.fullscreenElement?document.exitFullscreen():fsRoot.requestFullscreen();
+}
+load();
+</script>
+</body>
+</html>
