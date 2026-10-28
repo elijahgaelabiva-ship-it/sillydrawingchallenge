@@ -1,4 +1,4 @@
-const C="silly-draw-v1";
+const C="silly-draw-v3";
 self.addEventListener("install",e=>{
   e.waitUntil(caches.open(C).then(c=>c.addAll(["manifest.webmanifest","icon-192.png","icon-512.png"])).then(()=>self.skipWaiting()));
 });
