@@ -61,6 +61,9 @@ button:focus-visible,select:focus-visible{outline:3px solid #ffb400;outline-offs
 #status{font-weight:800;font-size:1.1rem;margin-bottom:12px}
 .bar{height:8px;background:#fff3;border-radius:6px;overflow:hidden;max-width:320px;margin:auto}
 .bar i{display:block;height:100%;width:0;background:var(--gold);transition:width .2s}
+#frame{display:none}
+#shoot{display:none;width:min(86%,340px);margin:0 auto 14px;padding:18px;font-size:1.5rem;letter-spacing:.5px;background:var(--p);color:#fff;box-shadow:0 6px 0 var(--d)}
+#shoot:active{transform:translateY(4px);box-shadow:0 2px 0 var(--d)}
 #alt{display:none;margin:14px auto 0;background:#fff;color:var(--d)}
 /* result */
 #res{position:absolute;inset:0;background:#000b;display:none;align-items:flex-end;justify-content:center}
@@ -143,6 +146,7 @@ body:has(#cam.open) #inst{display:none}
   <div id="camTop"><div id="camWord"></div><button id="x" aria-label="Close camera">✕</button></div>
   <div id="camBottom">
     <div id="status" aria-live="polite">Starting camera…</div>
+    <button id="shoot">📸 CAPTURE</button>
     <div class="bar"><i id="prog"></i></div>
     <button id="alt">📁 Use a photo instead</button>
     <input type="file" id="file" accept="image/*" hidden>
@@ -331,14 +335,13 @@ function judgement(avgInk,avgColor){
   return{score:s,comment:pick(lines[t]).replace("{w}",w.toLowerCase())};
 }
 
-let stream=null,timer=null,good=0,inks=[],cols=[],last=null,pre=null;
-const NEED=4; /* ~1 second of seeing a drawing */
+let stream=null,timer=null,last=null,pre=null;
 
 function setStatus(t){$("status").textContent=t}
 function stopCam(){
   clearInterval(timer);timer=null;
   if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
-  $("vid").srcObject=null;
+  $("vid").srcObject=null;$("shoot").style.display="none";
 }
 function closeCam(){stopSpeech();reqId++;if(ctl)ctl.abort();stopCam();$("cam").classList.remove("open");$("res").classList.remove("show")}
 
@@ -348,26 +351,24 @@ async function openCam(){
   try{
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
     $("vid").srcObject=stream;await $("vid").play();
-    startScan();
+    startLive();
   }catch(e){
+    $("shoot").style.display="none";
     setStatus("Camera didn't open. Allow camera access, or use a photo.");
     $("alt").style.display="block";
   }
 }
-function startScan(){
-  good=0;pre=null;inks=[];cols=[];$("prog").style.width="0";setStatus("Hold the drawing inside the frame");
-  clearInterval(timer);
-  timer=setInterval(()=>{
-    const v=$("vid");if(!v.videoWidth)return;
-    const r=look(v,v.videoWidth,v.videoHeight);
-    if(r.ink>.012){good++;inks.push(r.ink);cols.push(r.color);
-      if(good===2&&!pre&&apiKey)pre={ai:askJudge(snapshot(v,v.videoWidth,v.videoHeight),word)}; /* Gemini looks at the live camera while you hold still */
-      setStatus("Looking at your drawing…")}
-    else{good=Math.max(0,good-1);setStatus("Move closer so the drawing fills the frame")}
-    $("prog").style.width=(good/NEED*100)+"%";
-    if(good>=NEED){clearInterval(timer);const v=$("vid");judgeNow(v,v.videoWidth,v.videoHeight,{ink:avg(inks),color:avg(cols)},true)}
-  },220);
+function startLive(){ /* live preview; the player taps CAPTURE when the drawing looks good */
+  pre=null;$("prog").classList.remove("busy");$("prog").style.width="0";
+  const v=$("vid");if(v.paused)v.play().catch(()=>{});
+  $("shoot").style.display="block";setStatus("Fit the drawing on screen, then tap CAPTURE");
 }
+$("shoot").onclick=()=>{
+  const v=$("vid");if(!v.videoWidth)return;
+  const img=snapshot(v,v.videoWidth,v.videoHeight); /* grab the frame first, then freeze it */
+  v.pause();$("shoot").style.display="none";
+  judgeNow(v,v.videoWidth,v.videoHeight,null,false,img);
+};
 const avg=a=>a.reduce((x,y)=>x+y,0)/(a.length||1);
 
 /* ---------- spoken judgment (the device's own voice) ---------- */
@@ -494,24 +495,27 @@ let reqId=0,ctl=null;
 
 /* small in-memory copy of what the camera sees; sent once, never stored by this page */
 function snapshot(src,w,h){
-  const cr=src.tagName==="VIDEO"?frameCrop(src):null;
-  const sx=cr?cr.sx:0,sy=cr?cr.sy:0,sw=cr?cr.sw:w,sh=cr?cr.sw:h;
-  const k=Math.min(1,384/Math.max(sw,sh)),c=document.createElement("canvas");
+  let sx=0,sy=0,sw=w,sh=h;
+  if(src.tagName==="VIDEO"){ /* exactly what the player sees on screen (the video is cropped to fill it) */
+    const b=src.getBoundingClientRect(),k=Math.max(b.width/w,b.height/h);
+    sw=Math.min(w,b.width/k);sh=Math.min(h,b.height/k);sx=(w-sw)/2;sy=(h-sh)/2;
+  }
+  const k=Math.min(1,1024/Math.max(sw,sh)),c=document.createElement("canvas");
   c.width=Math.round(sw*k);c.height=Math.round(sh*k);
   c.getContext("2d").drawImage(src,sx,sy,sw,sh,0,0,c.width,c.height);
-  return c.toDataURL("image/jpeg",.6).split(",")[1];
+  return c.toDataURL("image/jpeg",.82).split(",")[1];
 }
 function showMsg(t){
   last=null;$("save").disabled=true;
   $("rScore").textContent="–";$("rAward").textContent="";$("rSee").textContent="";$("rComment").textContent=t;$("rTag").textContent="";
   $("res").classList.add("show");
 }
-async function judgeNow(src,w,h,local,live){
+async function judgeNow(src,w,h,local,live,img){
   stopSpeech();
   const id=++reqId,sid=speakId;
   const P=live?pre:null;pre=null;
   if(!apiKey){$("prog").classList.remove("busy");showMsg("🔑 Add your Gemini key with the ⚙️ button so the judge can see your drawing.");return}
-  const ai=(P&&P.ai)||askJudge(snapshot(src,w,h),word);
+  const ai=(P&&P.ai)||askJudge(img||snapshot(src,w,h),word);
   setStatus("The judge is looking… 🧐");$("prog").classList.add("busy");
   const r=await ai;
   if(id!==reqId||!$("cam").classList.contains("open"))return;
@@ -536,7 +540,7 @@ function showResult(r,ai,note,quiet){
 
 $("judge").onclick=()=>{unlockVoice();openCam()};
 $("x").onclick=closeCam;
-$("again").onclick=()=>{stopSpeech();$("res").classList.remove("show");stream?startScan():openCam()};
+$("again").onclick=()=>{stopSpeech();$("res").classList.remove("show");stream?startLive():openCam()};
 $("save").onclick=()=>{
   if(!last)return;
   scores[who]+=last.score;history[who].push({word,score:last.score,comment:last.comment});
